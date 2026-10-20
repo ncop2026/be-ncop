@@ -34,36 +34,56 @@ public class RoleInitializer {
 
     public static void main(String[] args) {
         Properties props = new Properties();
-        String[] filesToTry = {"application-dev.properties", "application-prod.properties", "application-int.properties"};
+        String[] filesToTry = {"application-dev.properties"};
         for (String file : filesToTry) {
             try (InputStream in = RoleInitializer.class.getClassLoader().getResourceAsStream(file)) {
                 if (in != null) {
                     props.load(in);
+                    break;
                 }
             } catch (IOException ignored) {
             }
         }
 
-        String uri = props.getProperty("spring.mongodb.uri");
+        // Resolve URI: check args -> resolve property placeholder -> env vars -> default
+        String uri = null;
+        if (args != null && args.length > 0 && !args[0].isBlank()) {
+            uri = args[0].trim();
+        }
+        if (uri == null || uri.isBlank()) {
+            uri = resolveProperty(props.getProperty("spring.mongodb.uri"));
+        }
+        if (uri == null || uri.isBlank() || uri.startsWith("${")) {
+            uri = System.getenv("MONGODB_URI_DEV");
+        }
         if (uri == null || uri.isBlank()) {
             uri = System.getenv("MONGODB_URI");
-            if (uri == null || uri.isBlank()) {
-                System.err.println("ERROR: MongoDB URI not found. Set spring.mongodb.uri or MONGODB_URI env var.");
-                System.exit(2);
-            }
+        }
+        if (uri == null || uri.isBlank()) {
+            uri = System.getProperty("spring.mongodb.uri");
+        }
+        if (uri == null || uri.isBlank() || uri.startsWith("${")) {
+            uri = "mongodb://localhost:27017";
         }
 
-        String dbName = props.getProperty("spring.mongodb.database");
-        if (dbName == null || dbName.isBlank()) dbName = System.getenv("MONGODB_DATABASE");
-
-        com.mongodb.ConnectionString cs = new com.mongodb.ConnectionString(uri);
-        if ((dbName == null || dbName.isBlank()) && cs.getDatabase() != null) {
-            dbName = cs.getDatabase();
+        String dbName = resolveProperty(props.getProperty("spring.mongodb.database"));
+        if (dbName == null || dbName.isBlank() || dbName.startsWith("${")) {
+            dbName = System.getenv("MONGODB_DATABASE_DEV");
         }
-
         if (dbName == null || dbName.isBlank()) {
-            System.err.println("ERROR: MongoDB database name not found. Set spring.mongodb.database, MONGODB_DATABASE, or include it in the URI.");
-            System.exit(2);
+            dbName = System.getenv("MONGODB_DATABASE");
+        }
+        if (dbName == null || dbName.isBlank()) {
+            dbName = "dev";
+        }
+
+        try {
+            com.mongodb.ConnectionString cs = new com.mongodb.ConnectionString(uri);
+            if (cs.getDatabase() != null && !cs.getDatabase().isBlank()) {
+                dbName = cs.getDatabase();
+            }
+        } catch (Exception e) {
+            System.err.println("Note: Using database name '" + dbName + "' (ConnectionString parse: " + e.getMessage() + ")");
         }
 
         System.out.println("Using MongoDB URI: " + (uri.length() > 40 ? uri.substring(0, 40) + "..." : uri));
@@ -91,5 +111,24 @@ public class RoleInitializer {
             e.printStackTrace();
             System.exit(2);
         }
+    }
+
+    private static String resolveProperty(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        raw = raw.trim();
+        if (raw.startsWith("${") && raw.endsWith("}")) {
+            String inner = raw.substring(2, raw.length() - 1);
+            String varName = inner;
+            String defaultValue = null;
+            if (inner.contains(":")) {
+                int idx = inner.indexOf(":");
+                varName = inner.substring(0, idx);
+                defaultValue = inner.substring(idx + 1);
+            }
+            String envVal = System.getenv(varName);
+            if (envVal != null && !envVal.isBlank()) return envVal;
+            return defaultValue;
+        }
+        return raw;
     }
 }
