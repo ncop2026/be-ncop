@@ -12,12 +12,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
+// ── Google Cloud Storage imports commented out ──────────────────────────────
+// Reason: project migrated from GCP to Railway/Render. File upload now
+// falls back to local disk. Re-enable when a cloud storage provider is added.
+//
+// import com.google.auth.oauth2.GoogleCredentials;
+// import com.google.cloud.storage.Blob;
+// import com.google.cloud.storage.BlobId;
+// import com.google.cloud.storage.BlobInfo;
+// import com.google.cloud.storage.Storage;
+// import com.google.cloud.storage.StorageOptions;
+
 import com.ncop.modules.clients.entity.ClientDocument;
 
 import jakarta.annotation.PostConstruct;
@@ -39,7 +44,7 @@ public class FileStorageService {
     @Value("${gcp.storage.credentials-path:}")
     private String gcsCredentialsPath;
 
-    private Storage storage;
+    // private Storage storage; // GCS Storage client — commented out
 
     private final Path fileStorageLocation = Paths.get("uploads/client-documents").toAbsolutePath().normalize();
 
@@ -65,35 +70,46 @@ public class FileStorageService {
 
     @PostConstruct
     public void init() {
-        if (StringUtils.hasText(gcsBucketName)) {
-            try {
-                StorageOptions.Builder builder = StorageOptions.newBuilder();
-                if (StringUtils.hasText(gcsProjectId)) {
-                    builder.setProjectId(gcsProjectId);
-                }
-                if (StringUtils.hasText(gcsCredentialsPath)) {
-                    Path credPath = Paths.get(gcsCredentialsPath);
-                    if (Files.exists(credPath)) {
-                        builder.setCredentials(GoogleCredentials.fromStream(Files.newInputStream(credPath)));
-                    } else {
-                        builder.setCredentials(GoogleCredentials.getApplicationDefault());
-                    }
-                } else {
-                    builder.setCredentials(GoogleCredentials.getApplicationDefault());
-                }
-                this.storage = builder.build().getService();
-                log.info("Google Cloud Storage initialized successfully for bucket: {}", gcsBucketName);
-            } catch (Exception e) {
-                log.warn("GCS credentials not available, using local disk storage: {}", e.getMessage());
-                this.storage = null;
-            }
-        } else {
-            log.info("GCS bucket name not configured. Defaulting to local storage at: {}", fileStorageLocation);
-        }
+        // ── GCS initialisation commented out ──────────────────────────────────
+        // Was: if (StringUtils.hasText(gcsBucketName)) { ... build GCS Storage client ... }
+        // Now: local disk storage is always used.
+        // Re-enable the block below (and restore the google-cloud-storage dependency
+        // in pom.xml) when a cloud storage provider is configured.
+        //
+        // if (StringUtils.hasText(gcsBucketName)) {
+        //     try {
+        //         StorageOptions.Builder builder = StorageOptions.newBuilder();
+        //         if (StringUtils.hasText(gcsProjectId)) {
+        //             builder.setProjectId(gcsProjectId);
+        //         }
+        //         if (StringUtils.hasText(gcsCredentialsPath)) {
+        //             Path credPath = Paths.get(gcsCredentialsPath);
+        //             if (Files.exists(credPath)) {
+        //                 builder.setCredentials(GoogleCredentials.fromStream(Files.newInputStream(credPath)));
+        //             } else {
+        //                 builder.setCredentials(GoogleCredentials.getApplicationDefault());
+        //             }
+        //         } else {
+        //             builder.setCredentials(GoogleCredentials.getApplicationDefault());
+        //         }
+        //         this.storage = builder.build().getService();
+        //         log.info("Google Cloud Storage initialized successfully for bucket: {}", gcsBucketName);
+        //     } catch (Exception e) {
+        //         log.warn("GCS credentials not available, using local disk storage: {}", e.getMessage());
+        //         this.storage = null;
+        //     }
+        // } else {
+        //     log.info("GCS bucket name not configured. Defaulting to local storage at: {}", fileStorageLocation);
+        // }
+
+        log.info("File storage: using local disk at {}", fileStorageLocation);
     }
 
     /**
-     * Store uploaded file in GCS if configured, else in local directory.
+     * Store uploaded file on local disk.
+     *
+     * <p>GCS upload is currently commented out. When a cloud storage provider is
+     * re-configured, restore the GCS branch inside this method.
      */
     public FileStorageResult storeFile(MultipartFile file, String clientId, String documentType) {
         if (file == null || file.isEmpty()) {
@@ -118,32 +134,26 @@ public class FileStorageService {
                 : detectContentType(fileExtension);
         long fileSize = file.getSize();
 
-        // 1. Try Google Cloud Storage
-        if (this.storage != null && StringUtils.hasText(gcsBucketName)) {
-            try {
-                String objectName = "clients/" + clientId + "/documents/" + uniqueFileName;
-                BlobId blobId = BlobId.of(gcsBucketName, objectName);
-                BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                        .setContentType(contentType)
-                        .build();
+        // ── GCS upload branch commented out ───────────────────────────────────
+        // Re-enable when google-cloud-storage dependency and Storage client are
+        // restored in pom.xml / init().
+        //
+        // if (this.storage != null && StringUtils.hasText(gcsBucketName)) {
+        //     try {
+        //         String objectName = "clients/" + clientId + "/documents/" + uniqueFileName;
+        //         BlobId blobId = BlobId.of(gcsBucketName, objectName);
+        //         BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+        //                 .setContentType(contentType)
+        //                 .build();
+        //         storage.create(blobInfo, file.getBytes());
+        //         log.info("File uploaded to GCS bucket '{}' at path '{}'", gcsBucketName, objectName);
+        //         return new FileStorageResult(uniqueFileName, originalFileName, contentType, fileSize, "GCS", objectName);
+        //     } catch (Exception ex) {
+        //         log.error("Failed uploading to GCS, falling back to local storage: {}", ex.getMessage());
+        //     }
+        // }
 
-                storage.create(blobInfo, file.getBytes());
-                log.info("File uploaded to GCS bucket '{}' at path '{}'", gcsBucketName, objectName);
-
-                return new FileStorageResult(
-                        uniqueFileName,
-                        originalFileName,
-                        contentType,
-                        fileSize,
-                        "GCS",
-                        objectName
-                );
-            } catch (Exception ex) {
-                log.error("Failed uploading to GCS, falling back to local storage: {}", ex.getMessage());
-            }
-        }
-
-        // 2. Fallback to Local Disk
+        // Local Disk storage
         try {
             Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
@@ -163,28 +173,31 @@ public class FileStorageService {
     }
 
     /**
-     * Retrieve document bytes from GCS or local disk.
+     * Retrieve document bytes from local disk.
+     *
+     * <p>GCS retrieval is currently commented out. Restore when a cloud storage
+     * provider is re-configured.
      */
     public byte[] loadFileBytes(ClientDocument document) {
         if (document == null) {
             return null;
         }
 
-        // 1. Load from GCS
-        if ("GCS".equalsIgnoreCase(document.getStorageType()) && this.storage != null && StringUtils.hasText(gcsBucketName)) {
-            try {
-                BlobId blobId = BlobId.of(gcsBucketName, document.getStoragePath());
-                Blob blob = storage.get(blobId);
-                if (blob != null && blob.exists()) {
-                    return blob.getContent();
-                }
-                log.warn("Blob not found on GCS: {}", document.getStoragePath());
-            } catch (Exception e) {
-                log.error("Error reading file from GCS: {}", e.getMessage());
-            }
-        }
+        // ── GCS load branch commented out ─────────────────────────────────────
+        // if ("GCS".equalsIgnoreCase(document.getStorageType()) && this.storage != null && StringUtils.hasText(gcsBucketName)) {
+        //     try {
+        //         BlobId blobId = BlobId.of(gcsBucketName, document.getStoragePath());
+        //         Blob blob = storage.get(blobId);
+        //         if (blob != null && blob.exists()) {
+        //             return blob.getContent();
+        //         }
+        //         log.warn("Blob not found on GCS: {}", document.getStoragePath());
+        //     } catch (Exception e) {
+        //         log.error("Error reading file from GCS: {}", e.getMessage());
+        //     }
+        // }
 
-        // 2. Load from Local Disk
+        // Local Disk load
         try {
             Path filePath = null;
             if (document.getStoragePath() != null) {
@@ -209,7 +222,10 @@ public class FileStorageService {
     }
 
     /**
-     * Delete document from GCS or local disk.
+     * Delete document from local disk.
+     *
+     * <p>GCS deletion is currently commented out. Restore when a cloud storage
+     * provider is re-configured.
      */
     public boolean deleteFile(ClientDocument document) {
         if (document == null) {
@@ -217,15 +233,16 @@ public class FileStorageService {
         }
         boolean deleted = false;
 
-        if ("GCS".equalsIgnoreCase(document.getStorageType()) && this.storage != null && StringUtils.hasText(gcsBucketName)) {
-            try {
-                BlobId blobId = BlobId.of(gcsBucketName, document.getStoragePath());
-                deleted = storage.delete(blobId);
-                log.info("Deleted file from GCS: {}", document.getStoragePath());
-            } catch (Exception e) {
-                log.warn("Error deleting file from GCS: {}", e.getMessage());
-            }
-        }
+        // ── GCS delete branch commented out ───────────────────────────────────
+        // if ("GCS".equalsIgnoreCase(document.getStorageType()) && this.storage != null && StringUtils.hasText(gcsBucketName)) {
+        //     try {
+        //         BlobId blobId = BlobId.of(gcsBucketName, document.getStoragePath());
+        //         deleted = storage.delete(blobId);
+        //         log.info("Deleted file from GCS: {}", document.getStoragePath());
+        //     } catch (Exception e) {
+        //         log.warn("Error deleting file from GCS: {}", e.getMessage());
+        //     }
+        // }
 
         try {
             Path filePath = null;

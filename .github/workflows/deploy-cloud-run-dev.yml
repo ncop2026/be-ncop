@@ -1,68 +1,83 @@
-name: Deploy development API to Cloud Run
+# ──────────────────────────────────────────────────────────────────────────────
+# COMMENTED OUT: Google Cloud Run deployment workflow
+# Reason: Project migrated to Railway / Render (Docker-based) for backend.
+#         Vercel does not support Java/JVM long-running processes.
+#         Re-enable by removing the block comments and restoring the YAML keys.
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# name: Deploy development API to Cloud Run
+#
+# on:
+#   push:
+#     branches:
+#       - main
+#   workflow_dispatch:
+#
+# concurrency:
+#   group: cloud-run-dev
+#   cancel-in-progress: true
+#
+# permissions:
+#   contents: read
+#   id-token: write
+#
+# env:
+#   GCP_PROJECT_ID: be-ncop-dev
+#   GCP_REGION: us-central1
+#   CLOUD_RUN_SERVICE: be-ncop-dev
+#   SPRING_PROFILES_ACTIVE: dev
+#   MONGODB_DATABASE_DEV: dev
+#   GCS_BUCKET_NAME: ncop-be-dev-storage
+#
+# jobs:
+#   deploy:
+#     name: Test and deploy
+#     runs-on: ubuntu-latest
+#     environment: development
+#
+#     steps:
+#       - name: Check out source
+#         uses: actions/checkout@v4
+#
+#       - name: Set up Java
+#         uses: actions/setup-java@v4
+#         with:
+#           distribution: temurin
+#           java-version: '17'
+#           cache: maven
+#
+#       - name: Run tests
+#         run: ./mvnw --batch-mode test
+#
+#       # Uses GitHub OIDC / Workload Identity Federation: no service-account key
+#       # needs to be committed to the repository or stored as a GitHub secret.
+#       - name: Authenticate to Google Cloud
+#         uses: google-github-actions/auth@v2
+#         with:
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+#
+#       - name: Set up gcloud
+#         uses: google-github-actions/setup-gcloud@v2
+#
+#       - name: Deploy to Cloud Run
+#         env:
+#           MONGODB_URI_DEV: ${{ secrets.MONGODB_URI_DEV }}
+#         run: |
+#           gcloud run deploy "$CLOUD_RUN_SERVICE" \
+#             --source . \
+#             --project "$GCP_PROJECT_ID" \
+#             --region "$GCP_REGION" \
+#             --allow-unauthenticated \
+#             --set-env-vars "SPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE,MONGODB_URI_DEV=$MONGODB_URI_DEV,MONGODB_DATABASE_DEV=$MONGODB_DATABASE_DEV,GCS_BUCKET_NAME=$GCS_BUCKET_NAME,GCS_PROJECT_ID=$GCP_PROJECT_ID" \
+#             --quiet
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-# Prevent two commits from deploying over one another. A manual run remains possible
-# from the Actions tab at any time.
-concurrency:
-  group: cloud-run-dev
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  id-token: write
-
-env:
-  GCP_PROJECT_ID: be-ncop-dev
-  GCP_REGION: us-central1
-  CLOUD_RUN_SERVICE: be-ncop-dev
-  SPRING_PROFILES_ACTIVE: dev
-  MONGODB_DATABASE_DEV: dev
-  GCS_BUCKET_NAME: ncop-be-dev-storage
-
-jobs:
-  deploy:
-    name: Test and deploy
-    runs-on: ubuntu-latest
-    environment: development
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: maven
-
-      - name: Run tests
-        run: ./mvnw --batch-mode test
-
-      # Uses GitHub OIDC / Workload Identity Federation: no service-account key
-      # needs to be committed to the repository or stored as a GitHub secret.
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Deploy to Cloud Run
-        env:
-          MONGODB_URI_DEV: ${{ secrets.MONGODB_URI_DEV }}
-        run: |
-          gcloud run deploy "$CLOUD_RUN_SERVICE" \
-            --source . \
-            --project "$GCP_PROJECT_ID" \
-            --region "$GCP_REGION" \
-            --allow-unauthenticated \
-            --set-env-vars "SPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE,MONGODB_URI_DEV=$MONGODB_URI_DEV,MONGODB_DATABASE_DEV=$MONGODB_DATABASE_DEV,GCS_BUCKET_NAME=$GCS_BUCKET_NAME,GCS_PROJECT_ID=$GCP_PROJECT_ID" \
-            --quiet
+# ──────────────────────────────────────────────────────────────────────────────
+# NEW: Railway / Render deployment — connect your GitHub repo in their dashboard.
+# No workflow file is needed; Railway/Render will auto-detect the Dockerfile.
+# Required environment variables to set in Railway/Render dashboard:
+#   SPRING_PROFILES_ACTIVE=dev
+#   MONGODB_URI_DEV=<your-mongodb-atlas-uri>
+#   MONGODB_DATABASE_DEV=dev
+#   PORT=8080   (set automatically by Railway/Render)
+# ──────────────────────────────────────────────────────────────────────────────

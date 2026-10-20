@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: be-ncop
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon # Options: oregon, ohio, frankfurt, singapore
+    plan: starter # 'starter' (512MB RAM+) is recommended for Java/JVM. 'free' is also available.
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: dev
+      - key: MONGODB_DATABASE_DEV
+        value: dev
+      - key: NCOP_API_KEY
+        value: ncop-dev-api-key-2026
+      - key: MONGODB_URI_DEV
+        sync: false # Set securely in the Render Dashboard

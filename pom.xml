@@ -99,12 +99,15 @@
 			<version>2.8.8</version>
 		</dependency>
 
-		<!-- Google Cloud Storage -->
+		<!-- Google Cloud Storage — commented out: migrated from GCP to Railway/Render.
+		     File storage now falls back to local disk. Re-enable when a cloud storage
+		     provider (GCS, S3, etc.) is configured for the new deployment target.
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-storage</artifactId>
 			<version>2.46.0</version>
 		</dependency>
+		-->
 
 		<!-- Test support -->
 		<dependency>
